@@ -5,6 +5,9 @@ import {
   ArrowRight,
   Church,
   Navigation,
+  Users,
+  Heart,
+  Music,
 } from "lucide-react";
 
 /* --------------------------------
@@ -12,92 +15,61 @@ import {
 -------------------------------- */
 const CHURCH_NAME = "Slavic Evangelical Church";
 const SERVICE_SCHEDULE = [
-  "Sunday Service - 10am",
-  "Friday Service - 7pm",
+  { time: "Sunday Service — 10:00 AM", desc: "Main Worship & Word", day: "Sun" },
+  { time: "Friday Service — 7:00 PM", desc: "Prayer & Fellowship", day: "Fri" },
 ];
 const ADDRESS = "16339 Mountain Rd, Montpelier, VA 23192";
-const GOOGLE_MAPS_URL =
-  "https://www.google.com/maps/search/?api=1&query=16339+Mountain+Rd,+Montpelier,+VA+23192";
+const GOOGLE_MAPS_URL = "https://goo.gl/maps/xyz"; // Update with actual link
 
-/* Replace with your image in /public (e.g., /images/church.jpg) */
 const HERO_IMAGE_SRC = "/churchBackground.png";
 
 /* --------------------------------
-   REUSABLE COMPONENTS
+   COMPONENTS
 -------------------------------- */
 
-type ButtonProps = {
-  label: string;
-  href: string;
-  ariaLabel: string;
-  icon?: React.ReactNode;
-  variant?: "primary" | "secondary";
-};
-
-function Button({
-  label,
-  href,
-  ariaLabel,
-  icon,
-  variant = "primary",
-}: ButtonProps) {
-  const baseStyles =
-    "inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
-
-  const variantStyles =
-    variant === "primary"
-      ? "bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-600"
-      : "bg-white text-gray-900 border border-gray-200 hover:bg-gray-100 focus:ring-gray-400";
-
+function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <a
-      href={href}
-      aria-label={ariaLabel}
-      className={`${baseStyles} ${variantStyles}`}
-    >
-      {label}
-      {icon}
-    </a>
+    <div className="text-center mb-12">
+      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{title}</h2>
+      {subtitle && <p className="mt-4 text-gray-600 max-w-2xl mx-auto">{subtitle}</p>}
+    </div>
   );
 }
 
 /* --------------------------------
-   HEADER
--------------------------------- */
-function Header() {
-  return (
-    <header className="border-b border-gray-200 bg-white/80 backdrop-blur">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Church className="h-6 w-6 text-teal-600" />
-          <span className="font-semibold text-lg">{CHURCH_NAME}</span>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-/* --------------------------------
-   HERO SECTION (IMAGE BACKGROUND)
+   HERO SECTION
 -------------------------------- */
 function Hero() {
   return (
-   <section className="relative min-h-[65vh] md:min-h-[80vh] flex items-center justify-center overflow-hidden">
-      {/* Background Image */}
+    <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
       <img
         src={HERO_IMAGE_SRC}
-        alt="Church background"
-        className="absolute inset-0 w-full h-full object-cover"
+        alt="Church Sanctuary"
+        className="absolute inset-0 w-full h-full object-cover scale-105 animate-subtle-zoom"
       />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-teal-900/40" />
 
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/50" />
-
-      {/* Content */}
-      <div className="relative max-w-6xl mx-auto px-4 text-center text-white">
-        <h1 className="text-4xl md:text-6xl font-bold leading-tight">
-          Welcome to Slavic Evangelical Church
+      <div className="relative max-w-4xl mx-auto px-4 text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-100 text-xs font-medium backdrop-blur-md mb-6">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+          </span>
+          Join us this Sunday at 10:00 AM
+        </div>
+        
+        <h1 className="text-5xl md:text-7xl font-extrabold text-white leading-tight tracking-tighter mb-6">
+          Welcome to {CHURCH_NAME}
         </h1>
+        
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="#location" className="w-full sm:w-auto px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl transition-all transform hover:scale-105 flex items-center justify-center gap-2">
+            Plan Your Visit <ArrowRight className="h-5 w-5" />
+          </a>
+          <a href="https://www.youtube.com/@slavicevangchurch/streams" className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl backdrop-blur-md border border-white/20 transition-all">
+            Watch Online
+          </a>
+        </div>
       </div>
     </section>
   );
@@ -108,29 +80,23 @@ function Hero() {
 -------------------------------- */
 function ServiceSchedule() {
   return (
-    <section
-      id="service"
-      className="py-16 md:py-24 bg-white"
-      aria-labelledby="service-heading"
-    >
+    <section id="services" className="py-24 bg-gray-50">
       <div className="max-w-6xl mx-auto px-4">
-        <h2
-          id="service-heading"
-          className="text-2xl md:text-3xl font-semibold text-center text-gray-900"
-        >
-          Service Schedule
-        </h2>
-
-        <div className="mt-10 grid gap-6 md:grid-cols-2">
-          {SERVICE_SCHEDULE.map((service) => (
-            <div
-              key={service}
-              className="rounded-xl shadow-md p-8 bg-teal-600 text-white flex items-center gap-4 justify-center text-center"
-            >
-              <Clock className="h-6 w-6" />
-              <span className="text-xl md:text-2xl font-bold">
-                {service}
-              </span>
+        <SectionHeading title="Service Times" subtitle="We invite you to join us for worship and fellowship throughout the week." />
+        
+        <div className="grid md:grid-cols-2 gap-8">
+          {SERVICE_SCHEDULE.map((item) => (
+            <div key={item.day} className="relative group bg-white rounded-3xl p-8 shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+              <div className="absolute top-8 right-8 text-6xl font-black text-gray-50 group-hover:text-teal-50 transition-colors">
+                {item.day}
+              </div>
+              <div className="relative z-10">
+                <div className="h-12 w-12 bg-teal-600 rounded-xl flex items-center justify-center text-white mb-6">
+                  <Clock size={24} />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">{item.time}</h3>
+                <p className="text-gray-500 font-medium">{item.desc}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -144,40 +110,28 @@ function ServiceSchedule() {
 -------------------------------- */
 function Location() {
   return (
-    <section
-      className="py-16 md:py-24 bg-gray-50"
-      aria-labelledby="location-heading"
-    >
+    <section id="location" className="py-24 bg-white">
       <div className="max-w-6xl mx-auto px-4">
-        <h2
-          id="location-heading"
-          className="text-2xl md:text-3xl font-semibold text-center text-gray-900"
-        >
-          Location & Directions
-        </h2>
-
-        <div className="mt-10 grid md:grid-cols-2 gap-10 items-center">
-          <div className="space-y-6">
-            <div className="flex items-start gap-3">
-              <MapPin className="h-6 w-6 text-teal-600 mt-1" />
-              <p className="text-lg text-gray-700">{ADDRESS}</p>
+        <div className="bg-gray-900 rounded-[3rem] overflow-hidden shadow-2xl flex flex-col lg:flex-row">
+          <div className="p-12 lg:p-16 lg:w-1/2 flex flex-col justify-center">
+            <h2 className="text-4xl font-bold text-white mb-6">Visit Us</h2>
+            <div className="flex items-start gap-4 mb-8 text-teal-100/80">
+              <MapPin className="mt-1 text-teal-400" />
+              <p className="text-lg leading-relaxed">{ADDRESS}</p>
             </div>
-
-            <Button
-              label="Open in Google Maps"
-              href={GOOGLE_MAPS_URL}
-              ariaLabel="Open church location in Google Maps"
-              icon={<Navigation className="h-4 w-4" />}
-            />
+            <a 
+              href={GOOGLE_MAPS_URL} 
+              className="inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-8 py-4 rounded-xl font-bold hover:bg-teal-400 transition-colors"
+            >
+              <Navigation size={20} /> Get Directions
+            </a>
           </div>
-
-          <div className="w-full h-80 rounded-xl overflow-hidden shadow-md">
-            <iframe
+          <div className="h-[400px] lg:h-auto lg:w-1/2 bg-gray-200 grayscale hover:grayscale-0 transition-all duration-700">
+             <iframe
               title="Church location map"
-              src="https://www.google.com/maps?q=16339+Mountain+Rd,+Montpelier,+VA+23192&output=embed"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3151.72477123!2d-77.728956!3d37.82281!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89b140889c8949c3%3A0xc6a8a07c34d3d4b6!2s16339%20Mountain%20Rd%2C%20Montpelier%2C%20VA%2023192!5e0!3m2!1sen!2sus!4v1712800000000!5m2!1sen!2sus"
               className="w-full h-full border-0"
               loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
             ></iframe>
           </div>
         </div>
@@ -187,33 +141,28 @@ function Location() {
 }
 
 /* --------------------------------
-   FOOTER
--------------------------------- */
-function Footer() {
-  return (
-    <footer className="bg-white border-t border-gray-200">
-      <div className="max-w-6xl mx-auto px-4 py-8 text-center">
-        <p className="text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Slavic Evangelical Church. All rights reserved.
-        </p>
-      </div>
-    </footer>
-  );
-}
-
-/* --------------------------------
-   PAGE
+   PAGE WRAPPER
 -------------------------------- */
 export default function Page() {
   return (
-    <>
-      {/* <Header /> */}
+    <div className="antialiased selection:bg-teal-100 selection:text-teal-900">
       <main>
         <Hero />
         <ServiceSchedule />
         <Location />
       </main>
-      <Footer />
-    </>
+      
+      <footer className="bg-gray-50 py-12 border-t border-gray-200">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <Church className="text-teal-600" />
+            <span className="font-bold text-gray-900">{CHURCH_NAME}</span>
+          </div>
+          <p className="text-gray-500 text-sm">
+            © {new Date().getFullYear()} {CHURCH_NAME}. Built with faith and purpose.
+          </p>
+        </div>
+      </footer>
+    </div>
   );
 }
