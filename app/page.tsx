@@ -19,7 +19,7 @@ const SERVICE_SCHEDULE = [
   { time: "Friday Service — 7:00 PM", desc: "Prayer & Fellowship", day: "Fri" },
 ];
 const ADDRESS = "16339 Mountain Rd, Montpelier, VA 23192";
-const GOOGLE_MAPS_URL = "https://goo.gl/maps/xyz"; // Update with actual link
+const GOOGLE_MAPS_URL = "https://www.google.com/maps/search/?api=1&query=16339+Mountain+Rd,+Montpelier,+VA+23192";
 
 const HERO_IMAGE_SRC = "/churchBackground.png";
 
