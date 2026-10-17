@@ -1,19 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Room, RoomEvent, Track } from "livekit-client";
+import { DisconnectReason, Room, RoomEvent, Track, type RemoteParticipant } from "livekit-client";
 import { Loader2, Play, Square } from "lucide-react";
-import { fetchToken, useWakeLock } from "@/lib/live-audio";
+import { fetchToken, NotLiveError, useWakeLock } from "@/lib/live-audio";
 
-type Status = "idle" | "connecting" | "waiting" | "paused" | "live" | "reconnecting" | "error";
+type Status = "idle" | "connecting" | "notLive" | "paused" | "live" | "reconnecting" | "ended" | "error";
+
+const BROADCASTER_IDENTITY = "translator";
+// While not live, check this often, and give up after an hour so a forgotten tab stops polling.
+const POLL_INTERVAL_MS = 15_000;
+const MAX_POLLS = 240;
+// If the translator drops off without ending the broadcast, wait this long for them to come back.
+const TRANSLATOR_GRACE_MS = 60_000;
 
 const STATUS_TEXT: Record<Status, string> = {
   idle: "Tap to listen",
   connecting: "Connecting…",
-  waiting: "Waiting for the translator to start…",
+  notLive: "The translation hasn't started yet. This page will connect automatically when it does.",
   paused: "Translator is paused",
   live: "Live",
   reconnecting: "Reconnecting…",
+  ended: "The translation has ended.",
   error: "",
 };
 
@@ -22,14 +30,41 @@ export default function Player() {
   const [error, setError] = useState<string | null>(null);
   const [needsTap, setNeedsTap] = useState(false);
   const roomRef = useRef<Room | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioContainerRef = useRef<HTMLDivElement>(null);
 
-  const listening = status !== "idle" && status !== "error";
-  useWakeLock(listening);
+  const active = status !== "idle" && status !== "ended" && status !== "error";
+  useWakeLock(status === "live" || status === "paused" || status === "reconnecting");
 
-  useEffect(() => () => void roomRef.current?.disconnect(), []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      roomRef.current?.disconnect();
+    },
+    [],
+  );
 
-  async function start() {
+  function clearTimer() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+
+  function teardown() {
+    clearTimer();
+    const room = roomRef.current;
+    roomRef.current = null;
+    room?.disconnect();
+    if (audioContainerRef.current) audioContainerRef.current.innerHTML = "";
+    setNeedsTap(false);
+  }
+
+  function finish(next: Status, message: string | null = null) {
+    teardown();
+    setError(message);
+    setStatus(next);
+  }
+
+  function start() {
     setError(null);
     setStatus("connecting");
 
@@ -38,13 +73,16 @@ export default function Player() {
     // Unlock audio playback while still inside the tap; iOS refuses to play otherwise.
     room.startAudio().catch(() => {});
 
+    const isTranslator = (p: RemoteParticipant) => p.identity === BROADCASTER_IDENTITY;
+    const waitForTranslator = () => {
+      setStatus("paused");
+      clearTimer();
+      timerRef.current = setTimeout(() => finish("ended"), TRANSLATOR_GRACE_MS);
+    };
     const refresh = () => {
-      const publications = [...room.remoteParticipants.values()].flatMap((p) => [
-        ...p.audioTrackPublications.values(),
-      ]);
-      if (publications.some((pub) => pub.isSubscribed && !pub.isMuted)) setStatus("live");
-      else if (publications.length > 0) setStatus("paused");
-      else setStatus("waiting");
+      const translator = room.getParticipantByIdentity(BROADCASTER_IDENTITY);
+      const publication = translator?.getTrackPublication(Track.Source.Microphone);
+      setStatus(publication?.isSubscribed && !publication.isMuted ? "live" : "paused");
     };
 
     room
@@ -58,42 +96,54 @@ export default function Player() {
       })
       .on(RoomEvent.TrackMuted, refresh)
       .on(RoomEvent.TrackUnmuted, refresh)
-      .on(RoomEvent.TrackUnpublished, refresh)
-      .on(RoomEvent.ParticipantDisconnected, refresh)
+      .on(RoomEvent.ParticipantConnected, (p) => {
+        if (isTranslator(p)) clearTimer();
+      })
+      .on(RoomEvent.ParticipantDisconnected, (p) => {
+        if (isTranslator(p)) waitForTranslator();
+      })
       .on(RoomEvent.Reconnecting, () => setStatus("reconnecting"))
       .on(RoomEvent.Reconnected, refresh)
       .on(RoomEvent.AudioPlaybackStatusChanged, () => setNeedsTap(!room.canPlaybackAudio))
-      .on(RoomEvent.Disconnected, () => {
+      .on(RoomEvent.Disconnected, (reason) => {
         if (roomRef.current !== room) return; // stopped on purpose
-        roomRef.current = null;
-        setError("The connection was lost.");
-        setStatus("error");
+        // The translator tapping "End broadcast" deletes the room.
+        if (reason === DisconnectReason.ROOM_DELETED) finish("ended");
+        else finish("error", "The connection was lost.");
       });
 
-    try {
-      const { url, token } = await fetchToken({ role: "listener" });
-      await room.connect(url, token);
-      setNeedsTap(!room.canPlaybackAudio);
-      refresh();
-    } catch (e) {
-      roomRef.current = null;
-      room.disconnect();
-      setError(e instanceof Error ? e.message : "Could not connect.");
-      setStatus("error");
-    }
+    let polls = 0;
+    const tryJoin = async () => {
+      timerRef.current = null;
+      try {
+        const { url, token } = await fetchToken({ role: "listener" });
+        if (roomRef.current !== room) return;
+        await room.connect(url, token);
+        setNeedsTap(!room.canPlaybackAudio);
+        // The translator may have left between the token check and joining.
+        if (room.getParticipantByIdentity(BROADCASTER_IDENTITY)) refresh();
+        else waitForTranslator();
+      } catch (e) {
+        if (roomRef.current !== room) return;
+        if (e instanceof NotLiveError && ++polls < MAX_POLLS) {
+          setStatus("notLive");
+          timerRef.current = setTimeout(tryJoin, POLL_INTERVAL_MS);
+        } else if (e instanceof NotLiveError) {
+          finish("error", "The translation hasn't started yet.");
+        } else {
+          finish("error", e instanceof Error ? e.message : "Could not connect.");
+        }
+      }
+    };
+    tryJoin();
   }
 
   function stop() {
-    const room = roomRef.current;
-    roomRef.current = null;
-    room?.disconnect();
-    if (audioContainerRef.current) audioContainerRef.current.innerHTML = "";
-    setNeedsTap(false);
-    setStatus("idle");
+    finish("idle");
   }
 
   useEffect(() => {
-    if (!listening || !("mediaSession" in navigator)) return;
+    if (!active || !("mediaSession" in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: "Live Translation",
       artist: "Slavic Evangelical Church",
@@ -104,21 +154,23 @@ export default function Player() {
       navigator.mediaSession.setActionHandler("pause", null);
       navigator.mediaSession.setActionHandler("stop", null);
     };
-  }, [listening]);
+    // `stop` only touches refs and state setters, so it never goes stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
   return (
     <div className="flex flex-col items-center gap-6 w-full">
       <button
-        onClick={listening ? stop : start}
-        aria-label={listening ? "Stop listening" : "Start listening"}
+        onClick={active ? stop : start}
+        aria-label={active ? "Stop listening" : "Start listening"}
         className={`relative h-40 w-40 rounded-full flex items-center justify-center transition-all active:scale-95 ${
-          listening ? "bg-white/10 border-2 border-teal-400" : "bg-teal-600 hover:bg-teal-500 shadow-2xl shadow-teal-900/50"
+          active ? "bg-white/10 border-2 border-teal-400" : "bg-teal-600 hover:bg-teal-500 shadow-2xl shadow-teal-900/50"
         }`}
       >
         {status === "live" && <span className="absolute inset-0 rounded-full border-2 border-teal-400 animate-ping opacity-40" />}
         {status === "connecting" || status === "reconnecting" ? (
           <Loader2 size={56} className="animate-spin" />
-        ) : listening ? (
+        ) : active ? (
           <Square size={48} fill="currentColor" />
         ) : (
           <Play size={64} fill="currentColor" className="ml-2" />
@@ -133,8 +185,8 @@ export default function Player() {
         ) : (
           <p className="text-gray-300">{status === "error" ? error : STATUS_TEXT[status]}</p>
         )}
-        {status === "error" && <p className="text-sm text-gray-500">Tap the button to try again.</p>}
-        {listening && <p className="text-xs text-gray-500">Tap again to stop</p>}
+        {(status === "error" || status === "ended") && <p className="text-sm text-gray-500">Tap the button to check again.</p>}
+        {active && <p className="text-xs text-gray-500">Tap again to stop</p>}
       </div>
 
       {needsTap && (

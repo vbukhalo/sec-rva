@@ -56,6 +56,7 @@ Listeners open `/listen` on their phones. The translator broadcasts from `/trans
 ### On Sunday
 
 - **Translator:** open `/translate/broadcast`, tap **Test microphone**, check the level meter, enter the passcode and tap **Go live**. Keep the page open and the screen on until the service ends.
-- **Listeners:** open `/listen` and tap play. They can join before the translator goes live; audio starts on its own when the broadcast begins.
+- **Listeners:** open `/listen` and tap play. Listeners can only join while the translator is live. If they tap play early, the page checks every 15 seconds without joining and connects when the broadcast starts.
+- **End broadcast** disconnects every listener immediately. If the translator drops off without ending, listeners are disconnected after 60 seconds.
 
-The free LiveKit plan includes 5,000 participant-minutes per month (every listener and the translator count). Check usage in the LiveKit dashboard.
+The free LiveKit plan includes 5,000 participant-minutes per month. Every connected listener and the translator counts, but listeners waiting for the broadcast to start don't. Check usage in the LiveKit dashboard.

@@ -1,22 +1,16 @@
-import { timingSafeEqual } from "node:crypto";
 import { AccessToken, TrackSource } from "livekit-server-sdk";
-
-const ROOM_NAME = "translation";
-const BROADCASTER_IDENTITY = "translator";
-
-function passcodeMatches(given: unknown): boolean {
-  const expected = process.env.BROADCAST_PASSCODE;
-  if (!expected || typeof given !== "string") return false;
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+import {
+  BROADCASTER_IDENTITY,
+  ROOM_NAME,
+  isBroadcastLive,
+  livekitConfig,
+  notConfigured,
+  passcodeMatches,
+} from "@/lib/livekit-server";
 
 export async function POST(request: Request) {
-  const { LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET } = process.env;
-  if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
-    return Response.json({ error: "Translation service is not configured." }, { status: 500 });
-  }
+  const config = livekitConfig();
+  if (!config) return notConfigured();
 
   const body = await request.json().catch(() => ({}));
   const isBroadcaster = body.role === "broadcaster";
@@ -24,8 +18,12 @@ export async function POST(request: Request) {
   if (isBroadcaster && !passcodeMatches(body.passcode)) {
     return Response.json({ error: "Incorrect passcode." }, { status: 401 });
   }
+  // Listeners only join while the translator is on air, so idle phones don't use up minutes.
+  if (!isBroadcaster && !(await isBroadcastLive(config))) {
+    return Response.json({ error: "The translation isn't live right now." }, { status: 409 });
+  }
 
-  const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+  const token = new AccessToken(config.apiKey, config.apiSecret, {
     identity: isBroadcaster ? BROADCASTER_IDENTITY : `listener-${crypto.randomUUID()}`,
     ttl: "6h",
   });
@@ -49,5 +47,5 @@ export async function POST(request: Request) {
         },
   );
 
-  return Response.json({ url: LIVEKIT_URL, token: await token.toJwt() });
+  return Response.json({ url: config.url, token: await token.toJwt() });
 }

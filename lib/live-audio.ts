@@ -2,6 +2,9 @@ import { useEffect } from "react";
 
 type TokenRequest = { role: "listener" } | { role: "broadcaster"; passcode: string };
 
+/** The translator isn't broadcasting, so the server won't let listeners join. */
+export class NotLiveError extends Error {}
+
 export async function fetchToken(body: TokenRequest): Promise<{ url: string; token: string }> {
   const res = await fetch("/api/livekit-token", {
     method: "POST",
@@ -9,6 +12,7 @@ export async function fetchToken(body: TokenRequest): Promise<{ url: string; tok
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 409) throw new NotLiveError(data.error);
   if (!res.ok) throw new Error(data.error ?? "Could not connect. Please try again.");
   return data;
 }

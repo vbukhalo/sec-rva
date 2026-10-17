@@ -131,9 +131,15 @@ export default function Broadcaster() {
     }
   }
 
-  function stopLive() {
+  async function stopLive() {
     const room = roomRef.current;
     roomRef.current = null;
+    // Closing the room on the server disconnects every listener right away.
+    await fetch("/api/broadcast/end", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode }),
+    }).catch(() => {});
     room?.disconnect(false);
     setListeners(0);
     setStatus("off");
