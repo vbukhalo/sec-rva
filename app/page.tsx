@@ -8,6 +8,7 @@ import {
   Users,
   Heart,
   Music,
+  Headphones,
 } from "lucide-react";
 
 /* --------------------------------
@@ -68,6 +69,9 @@ function Hero() {
           </a>
           <a href="https://www.youtube.com/@slavicevangchurch/streams" className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl backdrop-blur-md border border-white/20 transition-all">
             Watch Online
+          </a>
+          <a href="/listen" className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl backdrop-blur-md border border-white/20 transition-all flex items-center justify-center gap-2">
+            <Headphones className="h-5 w-5" /> Live Translation
           </a>
         </div>
       </div>
