@@ -34,7 +34,8 @@ export default function Player() {
   const audioContainerRef = useRef<HTMLDivElement>(null);
 
   const active = status !== "idle" && status !== "ended" && status !== "error";
-  useWakeLock(status === "live" || status === "paused" || status === "reconnecting");
+  // Includes waiting for the broadcast to start: a locked phone stops the polling timers.
+  useWakeLock(active);
 
   useEffect(
     () => () => {

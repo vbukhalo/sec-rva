@@ -81,14 +81,24 @@ export default function Broadcaster() {
   }
 
   async function changeMic(nextDeviceId: string, nextVoiceCleanup: boolean) {
-    setDeviceId(nextDeviceId);
-    setVoiceCleanup(nextVoiceCleanup);
+    // Only show the new choice once it's actually capturing, so the UI matches the mic in use.
     try {
-      if (!track) return;
-      await track.restartTrack(captureOptions(nextDeviceId, nextVoiceCleanup));
-      setMicStream(track.mediaStreamTrack);
+      if (track) {
+        await track.restartTrack(captureOptions(nextDeviceId, nextVoiceCleanup));
+        setMicStream(track.mediaStreamTrack);
+      }
+      setDeviceId(nextDeviceId);
+      setVoiceCleanup(nextVoiceCleanup);
+      setError(null);
     } catch {
-      setError("Could not switch microphones.");
+      // restartTrack stops the old mic before opening the new one, so reopen the previous choice.
+      try {
+        await track?.restartTrack(captureOptions(deviceId, voiceCleanup));
+        if (track) setMicStream(track.mediaStreamTrack);
+        setError("Could not switch microphones. Still using the previous one.");
+      } catch {
+        setError("Could not switch microphones, and the previous one stopped. Pick a microphone again.");
+      }
     }
   }
 
