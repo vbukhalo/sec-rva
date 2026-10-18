@@ -12,7 +12,8 @@ export async function POST(request: Request) {
   const config = livekitConfig();
   if (!config) return notConfigured();
 
-  const body = await request.json().catch(() => ({}));
+  // A body of `null` parses fine, so fall back for it as well as for invalid JSON.
+  const body = (await request.json().catch(() => null)) ?? {};
   const isBroadcaster = body.role === "broadcaster";
 
   if (isBroadcaster) {

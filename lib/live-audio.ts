@@ -27,8 +27,10 @@ export function useWakeLock(active: boolean) {
     const request = async () => {
       try {
         const next = await navigator.wakeLock.request("screen");
-        if (cancelled) next.release();
-        else lock = next;
+        if (cancelled) return void next.release();
+        // Two requests can overlap (mount plus a quick visibility change); keep only the newest lock.
+        lock?.release();
+        lock = next;
       } catch {
         // Not allowed (e.g. low battery mode); audio still plays, the screen may just lock.
       }
