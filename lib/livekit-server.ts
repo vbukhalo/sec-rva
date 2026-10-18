@@ -15,12 +15,45 @@ export function livekitConfig(): LiveKitConfig | null {
 export const notConfigured = () =>
   Response.json({ error: "Translation service is not configured." }, { status: 500 });
 
-export function passcodeMatches(given: unknown): boolean {
+function passcodeMatches(given: unknown): boolean {
   const expected = process.env.BROADCAST_PASSCODE;
   if (!expected || typeof given !== "string") return false;
   const a = Buffer.from(given);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+// Best effort: each serverless instance keeps its own counts, so this slows guessing rather than stopping it.
+const MAX_FAILURES = 10;
+const LOCKOUT_MS = 10 * 60_000;
+const FAILURE_DELAY_MS = 1_000;
+const failures = new Map<string, { count: number; since: number }>();
+
+function clientIp(request: Request) {
+  return (
+    request.headers.get("x-nf-client-connection-ip") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown"
+  );
+}
+
+/** Returns an error response if the passcode is wrong or this IP has guessed wrong too often, otherwise null. */
+export async function rejectPasscode(request: Request, given: unknown): Promise<Response | null> {
+  const now = Date.now();
+  for (const [ip, entry] of failures) if (now - entry.since > LOCKOUT_MS) failures.delete(ip);
+
+  const ip = clientIp(request);
+  const entry = failures.get(ip);
+  if (entry && entry.count >= MAX_FAILURES) {
+    return Response.json({ error: "Too many incorrect passcodes. Try again in 10 minutes." }, { status: 429 });
+  }
+  if (passcodeMatches(given)) {
+    failures.delete(ip);
+    return null;
+  }
+  failures.set(ip, { count: (entry?.count ?? 0) + 1, since: entry?.since ?? now });
+  await new Promise((resolve) => setTimeout(resolve, FAILURE_DELAY_MS));
+  return Response.json({ error: "Incorrect passcode." }, { status: 401 });
 }
 
 function roomService(config: LiveKitConfig) {

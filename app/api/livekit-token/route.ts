@@ -5,7 +5,7 @@ import {
   isBroadcastLive,
   livekitConfig,
   notConfigured,
-  passcodeMatches,
+  rejectPasscode,
 } from "@/lib/livekit-server";
 
 export async function POST(request: Request) {
@@ -15,8 +15,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const isBroadcaster = body.role === "broadcaster";
 
-  if (isBroadcaster && !passcodeMatches(body.passcode)) {
-    return Response.json({ error: "Incorrect passcode." }, { status: 401 });
+  if (isBroadcaster) {
+    const rejected = await rejectPasscode(request, body.passcode);
+    if (rejected) return rejected;
   }
   // Listeners only join while the translator is on air, so idle phones don't use up minutes.
   if (!isBroadcaster && !(await isBroadcastLive(config))) {

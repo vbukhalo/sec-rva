@@ -86,8 +86,10 @@ export default function Player() {
     };
 
     room
-      .on(RoomEvent.TrackSubscribed, (track) => {
+      .on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
         if (track.kind === Track.Kind.Audio) audioContainerRef.current?.appendChild(track.attach());
+        // Only audio counts as the translator being back; rejoining without publishing still times out.
+        if (isTranslator(participant)) clearTimer();
         refresh();
       })
       .on(RoomEvent.TrackUnsubscribed, (track) => {
@@ -96,9 +98,6 @@ export default function Player() {
       })
       .on(RoomEvent.TrackMuted, refresh)
       .on(RoomEvent.TrackUnmuted, refresh)
-      .on(RoomEvent.ParticipantConnected, (p) => {
-        if (isTranslator(p)) clearTimer();
-      })
       .on(RoomEvent.ParticipantDisconnected, (p) => {
         if (isTranslator(p)) waitForTranslator();
       })
@@ -123,8 +122,9 @@ export default function Player() {
         await room.connect(url, token);
         joined = true;
         setNeedsTap(!room.canPlaybackAudio);
-        // The translator may have left between the token check and joining.
-        if (room.getParticipantByIdentity(BROADCASTER_IDENTITY)) refresh();
+        // The translator may have left, or stopped publishing, between the token check and joining.
+        const translator = room.getParticipantByIdentity(BROADCASTER_IDENTITY);
+        if (translator?.getTrackPublication(Track.Source.Microphone)) refresh();
         else waitForTranslator();
       } catch (e) {
         if (roomRef.current !== room) return;
