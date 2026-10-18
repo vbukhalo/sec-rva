@@ -43,7 +43,10 @@ export async function isBroadcastLive(config: LiveKitConfig) {
 export async function endBroadcast(config: LiveKitConfig) {
   try {
     await roomService(config).deleteRoom(ROOM_NAME);
-  } catch {
-    // Already gone.
+  } catch (e) {
+    // 404 means the room is already gone; anything else left listeners connected.
+    if (e instanceof ServerError && e.status === 404) return;
+    console.error("LiveKit room delete failed", e);
+    throw e;
   }
 }

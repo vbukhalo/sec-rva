@@ -107,28 +107,33 @@ export default function Player() {
       .on(RoomEvent.AudioPlaybackStatusChanged, () => setNeedsTap(!room.canPlaybackAudio))
       .on(RoomEvent.Disconnected, (reason) => {
         if (roomRef.current !== room) return; // stopped on purpose
+        if (!joined) return; // a failed join attempt; tryJoin handles it
         // The translator tapping "End broadcast" deletes the room.
         if (reason === DisconnectReason.ROOM_DELETED) finish("ended");
         else finish("error", "The connection was lost.");
       });
 
     let polls = 0;
+    let joined = false;
     const tryJoin = async () => {
       timerRef.current = null;
       try {
         const { url, token } = await fetchToken({ role: "listener" });
         if (roomRef.current !== room) return;
         await room.connect(url, token);
+        joined = true;
         setNeedsTap(!room.canPlaybackAudio);
         // The translator may have left between the token check and joining.
         if (room.getParticipantByIdentity(BROADCASTER_IDENTITY)) refresh();
         else waitForTranslator();
       } catch (e) {
         if (roomRef.current !== room) return;
-        if (e instanceof NotLiveError && ++polls < MAX_POLLS) {
+        // Once waiting, a network blip or server hiccup shouldn't stop the page from joining later.
+        const waiting = e instanceof NotLiveError || polls > 0;
+        if (waiting && ++polls < MAX_POLLS) {
           setStatus("notLive");
           timerRef.current = setTimeout(tryJoin, POLL_INTERVAL_MS);
-        } else if (e instanceof NotLiveError) {
+        } else if (waiting) {
           finish("error", "The translation hasn't started yet.");
         } else {
           finish("error", e instanceof Error ? e.message : "Could not connect.");

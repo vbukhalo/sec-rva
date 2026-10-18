@@ -9,6 +9,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Incorrect passcode." }, { status: 401 });
   }
 
-  await endBroadcast(config);
+  try {
+    await endBroadcast(config);
+  } catch {
+    return Response.json({ error: "Could not end the broadcast." }, { status: 502 });
+  }
   return Response.json({ ok: true });
 }

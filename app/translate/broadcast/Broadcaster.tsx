@@ -142,14 +142,18 @@ export default function Broadcaster() {
     const room = roomRef.current;
     roomRef.current = null;
     // Closing the room on the server disconnects every listener right away.
-    await fetch("/api/broadcast/end", {
+    const ended = await fetch("/api/broadcast/end", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ passcode }),
-    }).catch(() => {});
+    })
+      .then((res) => res.ok)
+      .catch(() => false);
+    // Leave anyway so the mic stops going out; listeners then time out on their own.
     room?.disconnect(false);
     setListeners(0);
     setStatus("off");
+    if (!ended) setError("The broadcast stopped, but listeners may stay connected for up to a minute before it ends for them.");
   }
 
   async function toggleMute() {
