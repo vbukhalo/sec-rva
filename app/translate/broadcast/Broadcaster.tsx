@@ -129,6 +129,8 @@ export default function Broadcaster() {
       if (cancelled()) return;
       await room.connect(url, token);
       if (cancelled()) return void room.disconnect(false);
+      // Mute before publishing so listeners never hear audio from a translator who is muted.
+      if (muted) await track.mute();
       await room.localParticipant.publishTrack(track, {
         source: Track.Source.Microphone,
         audioPreset: AudioPresets.speech,
@@ -136,7 +138,6 @@ export default function Broadcaster() {
         red: true,
       });
       if (cancelled()) return void room.disconnect(false);
-      if (muted) await track.mute();
       updateListeners();
       setStatus("live");
     } catch (e) {

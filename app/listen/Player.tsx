@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { DisconnectReason, Room, RoomEvent, Track, type RemoteParticipant } from "livekit-client";
 import { Loader2, Play, Square } from "lucide-react";
 import { fetchToken, NotLiveError, useWakeLock } from "@/lib/live-audio";
+import { BROADCASTER_IDENTITY } from "@/lib/live-room";
 
 type Status = "idle" | "connecting" | "notLive" | "paused" | "live" | "reconnecting" | "ended" | "error";
 
-const BROADCASTER_IDENTITY = "translator";
 // While not live, check this often, and give up after an hour so a forgotten tab stops polling.
 const POLL_INTERVAL_MS = 15_000;
 const MAX_POLLS = 240;

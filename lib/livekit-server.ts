@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { RoomServiceClient, ServerError, TrackType } from "livekit-server-sdk";
+import { BROADCASTER_IDENTITY, ROOM_NAME } from "@/lib/live-room";
 
-export const ROOM_NAME = "translation";
-export const BROADCASTER_IDENTITY = "translator";
+export { BROADCASTER_IDENTITY, ROOM_NAME };
 
 export type LiveKitConfig = { url: string; apiKey: string; apiSecret: string };
 
