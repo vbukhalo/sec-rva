@@ -96,8 +96,11 @@ export default function Broadcaster() {
     if (!track) return;
     setError(null);
     setStatus("connecting");
-    const room = new Room();
+    // An unexpected disconnect would otherwise stop the mic, and "Go live" again would publish a dead track.
+    const room = new Room({ stopLocalTrackOnUnpublish: false });
     roomRef.current = room;
+    // stopLive clears roomRef, so End broadcast during connecting cancels this attempt.
+    const cancelled = () => roomRef.current !== room;
     const updateListeners = () => setListeners(room.remoteParticipants.size);
     room
       .on(RoomEvent.ParticipantConnected, updateListeners)
@@ -105,7 +108,7 @@ export default function Broadcaster() {
       .on(RoomEvent.Reconnecting, () => setStatus("reconnecting"))
       .on(RoomEvent.Reconnected, () => setStatus("live"))
       .on(RoomEvent.Disconnected, () => {
-        if (roomRef.current !== room) return; // stopped on purpose
+        if (cancelled()) return; // stopped on purpose
         roomRef.current = null;
         setStatus("off");
         setError("The broadcast was disconnected. Check your internet connection and go live again.");
@@ -113,17 +116,21 @@ export default function Broadcaster() {
 
     try {
       const { url, token } = await fetchToken({ role: "broadcaster", passcode });
+      if (cancelled()) return;
       await room.connect(url, token);
+      if (cancelled()) return void room.disconnect(false);
       await room.localParticipant.publishTrack(track, {
         source: Track.Source.Microphone,
         audioPreset: AudioPresets.speech,
         dtx: true,
         red: true,
       });
+      if (cancelled()) return void room.disconnect(false);
       if (muted) await track.mute();
       updateListeners();
       setStatus("live");
     } catch (e) {
+      if (cancelled()) return;
       roomRef.current = null;
       room.disconnect(false); // keep the mic open for another try
       setStatus("off");
